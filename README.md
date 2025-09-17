@@ -19,6 +19,13 @@ This project simulates a distributed power grid monitoring system using virtual 
 
 ## Setup Instructions
 
+## Installation Requirements
+- Docker & Docker Compose
+- Kubernetes & kubectl (optional)
+- Python 3.10+
+- MQTT client libraries (paho-mqtt)
+- Grafana
+
 ### Option 1: Using Docker Compose
 1. Navigate to the project root:
    ```bash
