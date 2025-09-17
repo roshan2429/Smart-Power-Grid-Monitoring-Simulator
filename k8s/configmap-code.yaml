@@ -1,0 +1,69 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: smart-grid-code
+  namespace: smart-grid
+data:
+  sensor_simulator.py: |
+    import paho.mqtt.client as mqtt
+    import json, time, random
+
+    BROKER = "localhost"
+    PORT = 1883
+    TOPIC = "smartgrid/sensor"
+
+    client = mqtt.Client("SensorPublisher")
+    client.connect(BROKER, PORT)
+
+    while True:
+        data = {
+            "voltage": round(random.uniform(210, 250), 2),
+            "current": round(random.uniform(5, 20), 2),
+            "frequency": round(random.uniform(49.5, 50.5), 2),
+            "load": round(random.uniform(0.5, 1.5), 2),
+            "status": "OK"
+        }
+
+        if random.random() < 0.05:
+            data["status"] = "FAULT"
+
+        client.publish(TOPIC, json.dumps(data))
+        print(f"Published: {data}")
+        time.sleep(2)
+  data_collector.py: |
+    import paho.mqtt.client as mqtt
+    from influxdb import InfluxDBClient
+    import json
+    import os
+
+    INFLUX_DB = os.getenv("INFLUX_DB", "powergrid")
+    BROKER = os.getenv("MQTT_BROKER", "localhost")
+    PORT = int(os.getenv("MQTT_PORT", "1883"))
+    TOPIC = os.getenv("MQTT_TOPIC", "smartgrid/sensor")
+
+    influx = InfluxDBClient(os.getenv("INFLUX_HOST", "localhost"), 8086, os.getenv("INFLUX_USER", "root"), os.getenv("INFLUX_PASSWORD", "root"), INFLUX_DB)
+
+    def on_message(client, userdata, msg):
+        data = json.loads(msg.payload.decode())
+        # Convert non-float fields if needed
+        fields = {}
+        for k, v in data.items():
+            if isinstance(v, (int, float)):
+                fields[k] = v
+            else:
+                try:
+                    fields[k] = float(v)
+                except:
+                    # Skip non-numeric fields in fields, store as tags if needed
+                    pass
+        influx.write_points([{
+            "measurement": "grid_metrics",
+            "fields": fields
+        }])
+        print("Stored:", data)
+
+    client = mqtt.Client("Collector")
+    client.on_message = on_message
+    client.connect(BROKER, PORT)
+    client.subscribe(TOPIC)
+    client.loop_forever()

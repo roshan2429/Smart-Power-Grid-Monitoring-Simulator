@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sensor-simulator
+  namespace: smart-grid
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sensor-simulator
+  template:
+    metadata:
+      labels:
+        app: sensor-simulator
+    spec:
+      containers:
+        - name: sensor-simulator
+          image: python:3.10-slim
+          command: ["/bin/sh", "-c"]
+          args:
+            - pip install --no-cache-dir paho-mqtt && python /app/sensor_simulator.py
+          volumeMounts:
+            - name: code
+              mountPath: /app
+      volumes:
+        - name: code
+          configMap:
+            name: smart-grid-code
+            items:
+              - key: sensor_simulator.py
+                path: sensor_simulator.py

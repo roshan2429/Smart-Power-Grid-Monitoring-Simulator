@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: collector
+  namespace: smart-grid
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: collector
+  template:
+    metadata:
+      labels:
+        app: collector
+    spec:
+      containers:
+        - name: collector
+          image: python:3.10-slim
+          command: ["/bin/sh", "-c"]
+          args:
+            - pip install --no-cache-dir paho-mqtt influxdb && python /app/data_collector.py
+          volumeMounts:
+            - name: code
+              mountPath: /app
+      volumes:
+        - name: code
+          configMap:
+            name: smart-grid-code
+            items:
+              - key: data_collector.py
+                path: data_collector.py
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: collector
+  namespace: smart-grid
+spec:
+  selector:
+    app: collector
+  ports:
+    - protocol: TCP
+      port: 1883
+      targetPort: 1883
+  type: ClusterIP
